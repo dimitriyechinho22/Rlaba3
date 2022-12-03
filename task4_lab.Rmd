@@ -1,6 +1,6 @@
 ## Part II: Parameter estimation
 
-### Problem 3
+### Problem 4
 
 ```{r}
 
