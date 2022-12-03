@@ -1,0 +1,139 @@
+## Part II: Parameter estimation
+
+### Problem 3
+
+```{r}
+
+set.seed(17)
+id <- 17
+theta <- id/10
+M <- 1000
+N <- 1000
+poisson_distribution <- matrix(rpois(N*M, lambda=theta), nrow=M)
+```
+
+#### Method 2
+
+Lets introduce Z-rv
+$$Z:= \frac{\sqrt{n} \cdot (\bar{X} - \theta) }{\theta} \sim N(0 , 1)
+$$
+to the estimation of $\theta$ using following:
+
+$$
+P(|\theta - \bar{X}| \le \frac{z_{\beta} \cdot \theta}{\sqrt{n}}) = P(|Z| \le z_{\beta}) = 2\beta-1
+$$
+We also know that $2\beta-1 = 1 - \alpha$ so $\beta = 1 - \alpha/2$
+Below calculations are helping as to limit $\theta$ from both sides.
+If we use the ability of R language we can estimate the theta by using properties of modulus:
+$$
+\bar{X} - \theta \le \frac{\theta \cdot z_{1 - \frac{\alpha}{2}}} {\sqrt{n}})\\
+\theta - \bar{X} \le \frac{\theta \cdot z_{1 - \frac{\alpha}{2}}} {\sqrt{n}})\\
+\theta \geq \bar{X} - \frac{\theta \cdot z_{1 - \frac{\alpha}{2}}} {\sqrt{n}})\\
+\theta \le \bar{X} + \frac{\theta \cdot z_{1 - \frac{\alpha}{2}}} {\sqrt{n}})\\
+$$
+And use it in our estimation function. Therefore, we can adjust the equation
+$$
+P((|\bar{X} - \theta|) \le \frac{\theta \cdot z_{1 - \frac{\alpha}{2}}} {\sqrt{n}}) = P((|\frac{\bar{X}}{\theta}-1|) \le \frac{ z_{1 - \frac{\alpha}{2}}} {\sqrt{n}}) \\= P(1 - \frac{z_{1 - \frac{\alpha}{2}}}{\sqrt{n}}  \le \frac{\bar{X}}{\theta} \le 1 + \frac{z_{1 - \frac{\alpha}{2}}}{\sqrt{n}}) = \\ P (\frac{\sqrt{n} \cdot \bar{X}}{\sqrt{n} + z_{1 - \frac{\alpha}{2}}}  \le \theta \le  \frac{\sqrt{n} \cdot \bar{X}}{\sqrt{n} + z_{1-\frac{\alpha}{2}}}) \\ 1 - \alpha = [\frac{\sqrt{n} \cdot \bar{X}}{\sqrt{n} + z_{1 - \frac{\alpha}{2}}} ; \frac{\sqrt{n} \cdot \bar{X}}{\sqrt{n} + z_{1-\frac{\alpha}{2}}}]
+$$
+There we get an estimation fot theta using METHOD 2
+
+```{r}
+
+estimation_method2 <- function(data, alpha) {
+  n <- length(data)
+  return (c(mean(data) - (theta * qnorm(1 - alpha / 2)) / sqrt(n),
+            mean(data) + (theta * qnorm(1 - alpha / 2)) / sqrt(n)))
+}
+
+
+cat("METHOD 2", "\n")
+for (alpha in c(.01, .05, .1))
+{
+    func <- function (data_base) estimation_method2(data_base, alpha)
+    lst_of_bounds <- apply(poisson_distribution, 1, func)
+    cat("For confidence level", 1 - alpha, "\n")
+    cat("  the fraction of CI's containing the paraneter is",
+        mean(theta >= lst_of_bounds[1,] & theta <= lst_of_bounds[2,]), "\n", sep = " ")
+}
+```
+#### Method 3
+
+Solve the double inequality that was given in a task to calculate confidence level with unknown variance
+$$
+P(|\bar{X} - \theta| \le \frac{z_{1-\frac{\alpha}{2}} \cdot \theta}{\sqrt{n}})
+$$
+$$
+P(|\frac{\bar{X}}{\theta} - 1| \le \frac{z_{1-\frac{\alpha}{2}}}{\sqrt{n}})
+$$
+
+$$
+P(1-\frac{z_{1-\frac{\alpha}{2}}}{\sqrt{n}} \le \frac{\bar{X}}{\theta} \le \frac{z_{1-\frac{\alpha}{2}}}{\sqrt{n}}+1)
+$$
+Lets get the same denominator
+
+$$
+P(\frac{\sqrt{n}-z_{1-\frac{\alpha}{2}}}{\sqrt{n}} \le \frac{\theta}{\bar{X}} \le \frac{\sqrt{n}+z_{1-\frac{\alpha}{2}}}{\sqrt{n}})
+$$
+Multiply the inequality by sample mean and flip the numbers to obtain the theta bounds:
+
+
+$$
+P(\bar{X} \cdot  \frac{\sqrt{n}}{\sqrt{n}+z_{1-\frac{\alpha}{2}}} \le \theta \le \bar{X} \cdot  \frac{\sqrt{n}}{\sqrt{n}-z_{1-\frac{\alpha}{2}}})
+$$
+
+Confidence interval of level $1-\alpha$ :
+
+$$
+[\bar{X} \cdot  \frac{\sqrt{n}}{\sqrt{n}+z_{1-\frac{\alpha}{2}}};  \bar{X} \cdot  \frac{\sqrt{n}}{\sqrt{n}-z_{1-\frac{\alpha}{2}}}]
+$$
+```{r}
+cat("METHOD 3", "\n")
+estimation_method3 <- function(data, alpha) {
+  n <- length(data)
+  return (c((mean(data) * sqrt(n)) / (qnorm(1 - alpha / 2) + sqrt(n)),
+            (mean(data) * sqrt(n)) / (sqrt(n) - qnorm(1-alpha/2))))
+}
+
+#Method 3
+for (alpha in c(.01, .05, .1))
+{
+    func <- function (data_base) estimation_method3(data_base, alpha)
+    lst_of_bounds <- apply(poisson_distribution, 1, func)
+    cat("For confidence level", 1 - alpha, "\n")
+    cat("  the fraction of CI's containing the paraneter is",
+        mean(theta >= lst_of_bounds[1,] & theta <= lst_of_bounds[2,]), "\n", sep = " ")
+}
+```
+#### Method 4
+
+Using lecture notes we introduce $T=(\bar X-\mu)\frac{\sqrt n}{S}\sim\mathcal{T}_{n-1}$
+
+And using basic calculations described in Ross textbook we get the inequality
+$$
+\bar X-t^{(n-1)}_{1-\alpha/2}\frac{S}{\sqrt n} \le \theta \le \bar X+t^{(n-1)}_{1-\alpha/2}\frac{S}{\sqrt n}
+$$
+Which would be such interval confidence interval for $100(1-\alpha)$-:
+
+$$
+[\bar X-t^{(n-1)}_{1-\alpha/2}\frac{S}{\sqrt n},\bar X+t^{(n-1)}_{1-\alpha/2}\frac{S}{\sqrt n}]
+$$
+```{r}
+
+estimation_method4 <- function(data, alpha) {
+  n <- length(data)
+  return (c(mean(data) - qt(1 - alpha / 2, n - 1) * sd(data) / sqrt(n),
+            mean(data) + qt(1 - alpha / 2, n - 1) * sd(data) / sqrt(n)))
+}
+cat("METHOD 4", "\n")
+for (alpha in c(.01, .05, .1))
+{
+    func <- function (data_base) estimation_method4(data_base, alpha)
+    lst_of_bounds <- apply(poisson_distribution, 1, func)
+    cat("For confidence level", 1 - alpha, "\n")
+    cat("  the fraction of CI's containing the paraneter is",
+        mean(theta >= lst_of_bounds[1,] & theta <= lst_of_bounds[2,]), "\n", sep = " ")
+}
+```
+
+
+
